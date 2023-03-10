@@ -21,7 +21,7 @@ let {
   EXPORT_M3U_FILE,
   AUTO_EXPORT_M3U_NEXT,
   M3U_FILE_PATH,
-  DOWNLOAD_MAX_COUNT,
+  SIMULTANEOUS_DOWNLOAD_MAX,
 } = require('./store');
 
 const getHtmlURL = episode => HTML_URL.replace('$episode', episode);
@@ -30,7 +30,7 @@ const getFullPath = episode => path.resolve(VIDEO_DOWNLOAD_PATH, `${episode}.mp4
 const M3U_HEADER = '#EXTM3U';
 let m3uList = [];
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpgeOptionCache = [];
+const FFMPGEOptionCache = [];
 
 let NEED_STOP_LOOP = false;
 
@@ -59,10 +59,10 @@ async function downloadWebM3u(index) {
       NEED_STOP_LOOP = true;
       return;
     }
-    const name = getFullPath(index);
-    const option = {url, name};
+    const fullPath = getFullPath(index);
+    const option = {url, fullPath};
     if (EXPORT_M3U_FILE) {
-      const realName = `${EPISODE_NAME}_${path.basename(name).replace(/\..*$/, '')}`;
+      const realName = `${EPISODE_NAME}_${path.basename(fullPath).replace(/\..*$/, '')}`;
       console.log(`${realName} m3u url: ${url}`);
       let duration = -1;
       // TODO 获取真正时长
@@ -71,31 +71,36 @@ async function downloadWebM3u(index) {
       m3uList.push(option.url);
     }
     if (!AUTO_DOWNLOAD) return;
-    ffmpgeOptionCache.push(option);
-    if (ffmpgeOptionCache.length > DOWNLOAD_MAX_COUNT) return;
-    handleFFmpge(option);
+    FFMPGEOptionCache.push(option);
+    if (FFMPGEOptionCache.length > SIMULTANEOUS_DOWNLOAD_MAX) return;
+    handleStartFFMPGE(option);
   });
 }
 
-function handleFFmpge(option) {
-  const {url, name} = option;
-  if (option.start || option.end) {
-    console.log(`${path.basename(name)} 已下载成功!`);
+/**
+ * @example {url: 'xxx', fullPath: '/xxx/xxx/xxx.mp4', status: 0(未开始)|1(进行中)|2(已完成)}
+ * @param option {Object}
+ */
+function handleStartFFMPGE(option) {
+  option.status = option.status || 0;
+  const {url, fullPath} = option;
+  if (option.status > 0) {
+    console.log(`${fullPath} 已在下载中!`);
     return;
   }
-  option.start = true;
+  ++option.status;
   ffmpeg(url).on('progress', progress => {
     let completed = +(progress.percent || 0).toFixed(2);
     let total = 100;
     if (completed > total) {
       completed = total;
     }
-    pb.update({description: `已下载 ${name}`, completed, total});
+    pb.update({description: `已下载 ${fullPath}`, completed, total});
   }).on('end', () => {
-    option.end = true;
-    const next = ffmpgeOptionCache.find(o => !o.start);
-    next && handleFFmpge(next);
-  }).outputOptions('-y').outputOptions('-c copy').save(name);
+    ++option.status;
+    const nextOption = FFMPGEOptionCache.find(o => !o.status);
+    nextOption && handleStartFFMPGE(nextOption);
+  }).outputOptions('-y').outputOptions('-c copy').save(fullPath);
 }
 
 async function main() {
