@@ -1,0 +1,15 @@
+{
+  "name": "video_lazy_script",
+  "version": "1.0.0",
+  "description": "catch videos by script(node)",
+  "main": "downloadWebM3u.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "jyhuang",
+  "license": "ISC",
+  "dependencies": {
+    "fluent-ffmpeg": "2.1.2",
+    "single-line-log": "1.1.2"
+  }
+}
