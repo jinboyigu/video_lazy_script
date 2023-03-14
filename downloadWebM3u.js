@@ -109,7 +109,7 @@ function handleStartFFMPGE(option) {
 }
 
 async function main() {
-  let name = [EPISODE_NAME];
+  let name = [];
   if (NOT_COMPLETED_EPISODE.length) {
     name.push(...NOT_COMPLETED_EPISODE);
     await doNotCompleted();
