@@ -67,7 +67,7 @@ async function downloadWebM3u(index) {
       let duration = -1;
       // TODO 获取真正时长
       // await getUrlContent(url).then(content => {});
-      m3uList.push(`#EXTINF:${duration},${EPISODE_NAME}_${realName}`);
+      m3uList.push(`#EXTINF:${duration},${realName}`);
       m3uList.push(option.url);
     }
     if (!AUTO_DOWNLOAD) return;
@@ -89,17 +89,22 @@ function handleStartFFMPGE(option) {
     return;
   }
   ++option.status;
+  const description = `已下载 ${fullPath}`;
+  // TODO 增加总进度
   ffmpeg(url).on('progress', progress => {
     let completed = +(progress.percent || 0).toFixed(2);
     let total = 100;
     if (completed > total) {
       completed = total;
     }
-    pb.update({description: `已下载 ${fullPath}`, completed, total});
+    pb.update({description, completed, total});
   }).on('end', () => {
     ++option.status;
     const nextOption = FFMPGEOptionCache.find(o => !o.status);
-    nextOption && handleStartFFMPGE(nextOption);
+    if (nextOption) {
+      handleStartFFMPGE(nextOption);
+      pb.update({description, ignore: true});
+    }
   }).outputOptions('-y').outputOptions('-c copy').save(fullPath);
 }
 
@@ -140,5 +145,9 @@ async function exportMu3File(name) {
     return main();
   }
 }
+
+// 先创建文件夹
+AUTO_DOWNLOAD && require('child_process').execSync(`mkdir -p ${VIDEO_DOWNLOAD_PATH}`);
+EXPORT_M3U_FILE && require('child_process').execSync(`mkdir -p ${M3U_FILE_PATH}`);
 
 main().then();

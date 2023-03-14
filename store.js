@@ -22,8 +22,9 @@ const EXPORT_M3U_FILE = !AUTO_DOWNLOAD;
 // 自动继续导出
 const AUTO_EXPORT_M3U_NEXT = true;
 // m3u 文件存放路径
-const M3U_FILE_PATH = '/xxx';
-const DOWNLOAD_MAX_COUNT = 10;
+const M3U_FILE_PATH = 'm3u';
+// 同时下载最大文件数
+const SIMULTANEOUS_DOWNLOAD_MAX = 20;
 
 module.exports = {
   START_EPISODE,
