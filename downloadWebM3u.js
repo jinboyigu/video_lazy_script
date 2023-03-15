@@ -29,6 +29,7 @@ const getFullPath = episode => path.resolve(VIDEO_DOWNLOAD_PATH, `${episode}.mp4
 
 const M3U_HEADER = '#EXTM3U';
 let m3uList = [];
+const indexM3uList = [];
 const ffmpeg = require('fluent-ffmpeg');
 const FFMPGEOptionCache = [];
 
@@ -133,11 +134,20 @@ async function doNotCompleted() {
 }
 
 async function exportMu3File(name) {
-  if (!m3uList.length) return;
+  const _write = (name, content) => {
+    fs.writeFileSync(path.resolve(M3U_FILE_PATH || __dirname, name), `${M3U_HEADER}\n${content}`);
+  };
+  if (!m3uList.length) {
+    if (indexM3uList.length) {
+      _write('index.m3u', indexM3uList.join('\n'));
+    }
+    return;
+  }
   const fileName = `${name}.m3u`;
-  fs.writeFileSync(path.resolve(M3U_FILE_PATH || __dirname, fileName), `${M3U_HEADER}\n${m3uList.join('\n')}`);
+  _write(fileName, m3uList.join('\n'));
   console.log(`${fileName} 文件更新成功`);
   if (AUTO_EXPORT_M3U_NEXT) {
+    indexM3uList.push(...m3uList);
     // 初始化参数
     START_EPISODE += INCREASE_EPISODES + 1;
     END_EPISODE = START_EPISODE + INCREASE_EPISODES;
