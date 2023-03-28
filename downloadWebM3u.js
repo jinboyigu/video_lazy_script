@@ -157,7 +157,7 @@ async function exportMu3File(name) {
 }
 
 // 先创建文件夹
-AUTO_DOWNLOAD && require('child_process').execSync(`mkdir -p ${VIDEO_DOWNLOAD_PATH}`);
-EXPORT_M3U_FILE && require('child_process').execSync(`mkdir -p ${M3U_FILE_PATH}`);
+AUTO_DOWNLOAD && fs.mkdirSync(VIDEO_DOWNLOAD_PATH);
+EXPORT_M3U_FILE && fs.mkdirSync(M3U_FILE_PATH);
 
 main().then();
