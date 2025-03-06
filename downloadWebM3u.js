@@ -4,10 +4,11 @@
 
 const http = require('https');
 const fs = require('fs');
-const {mkdirR} = require('./lib/fs');
+const {mkdirR, write} = require('./lib/fs');
 const path = require('path');
 const ProgressBar = require('./lib/progressBar');
 const pb = new ProgressBar(void 0, 50);
+const DEBUG = false;
 
 // 可配置项
 let {
@@ -23,10 +24,13 @@ let {
   AUTO_EXPORT_M3U_NEXT,
   M3U_FILE_PATH,
   SIMULTANEOUS_DOWNLOAD_MAX,
+  M3U8_FILE_PATH,
+  M3U8_REMOVE_TAG,
+  getFileName,
 } = require('./store');
 
 const getHtmlURL = episode => HTML_URL.replace('$episode', episode);
-const getFullPath = episode => path.resolve(VIDEO_DOWNLOAD_PATH, `${episode}.mp4`);
+const getFullPath = episode => path.resolve(VIDEO_DOWNLOAD_PATH, `${getFileName(episode)}.mp4`);
 
 const M3U_HEADER = '#EXTM3U';
 let m3uList = [];
@@ -39,19 +43,53 @@ let NEED_STOP_LOOP = false;
 const getVideoURL = content => {
   let matched = content.match(/"url":"(https:.*\/index\.m3u8)","url_next/);
   if (!matched) return '';
-  return matched[1].replace(/\\/g, '');
+  let url;
+  try {
+    url = encodeURI(JSON.parse(`{"url":"${matched[1]}"}`).url);
+  } catch (e) {
+  }
+  return url;
 };
 
 async function requestUrlContent(url) {
   let rawData = '';
   return new Promise(resolve => {
     http.get(url, {}, res => {
-      res.on('data', (chunk) => { rawData += chunk; });
+      res.on('data', (chunk) => {
+        rawData += chunk;
+      });
       res.on('end', () => {
         resolve(rawData);
       });
     });
   });
+}
+
+// 将网页中的 m3u8 链接格式化(比如去掉中间广告)
+async function formatM3U8URL(url, name) {
+  if (!M3U8_REMOVE_TAG || !M3U8_FILE_PATH) return;
+  mkdirR(M3U8_FILE_PATH);
+  const localFile = path.join(__dirname, `${M3U8_FILE_PATH}/${name}.m3u8`);
+  let result;
+  if (fs.existsSync(localFile)) {
+    result = fs.readFileSync(localFile, 'utf-8');
+  } else {
+    const originResult = await requestUrlContent(url);
+    const array = originResult.split(`${M3U8_REMOVE_TAG}\n`);
+    array.splice(1, 1);
+    result = array.join('').split('\n').map(str => str.endsWith('\.ts') ? url.replace('index\.m3u8', str) : str).join('\n');
+    write(result, localFile);
+  }
+  const duration = getDuration(result);
+  return {localFile, duration};
+
+  function getDuration(content) {
+    return content.split('\n').filter(str => {
+      return str.startsWith('#EXTINF:');
+    }).map(str => {
+      return +str.replace(/#EXTINF:(\d+\.?\d*),.*/, '$1');
+    }).reduce((a, b) => a + b, 0);
+  }
 }
 
 async function downloadWebM3u(index) {
@@ -61,8 +99,9 @@ async function downloadWebM3u(index) {
       NEED_STOP_LOOP = true;
       return;
     }
+    DEBUG && console.log('[ | downloadWebM3u.js:92]', url);
     const fullPath = getFullPath(index);
-    const option = {url, fullPath};
+    const option = {url, fullPath, ...await formatM3U8URL(url, getFileName(index))};
     if (EXPORT_M3U_FILE) {
       const realName = `${EPISODE_NAME}_${path.basename(fullPath).replace(/\..*$/, '')}`;
       console.log(`${realName} m3u url: ${url}`);
@@ -79,13 +118,23 @@ async function downloadWebM3u(index) {
   });
 }
 
+function convertToSeconds(time) {
+  const parts = time.split(':'); // 分割字符串
+  const hours = parseFloat(parts[0]) || 0; // 小时
+  const minutes = parseFloat(parts[1]) || 0; // 分钟
+  const seconds = parseFloat(parts[2]) || 0; // 秒
+
+  // 将时间转换为秒
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
 /**
  * @example {url: 'xxx', fullPath: '/xxx/xxx/xxx.mp4', status: 0(未开始)|1(进行中)|2(已完成)}
  * @param option {Object}
  */
 function handleStartFFMPGE(option) {
   option.status = option.status || 0;
-  const {url, fullPath} = option;
+  const {url, fullPath, duration = 0, localFile} = option;
   if (option.status > 0) {
     console.log(`${fullPath} 已在下载中!`);
     return;
@@ -93,21 +142,34 @@ function handleStartFFMPGE(option) {
   ++option.status;
   const description = `已下载 ${fullPath}`;
   // TODO 增加总进度
-  ffmpeg(url).on('progress', progress => {
-    let completed = +(progress.percent || 0).toFixed(2);
-    let total = 100;
-    if (completed > total) {
-      completed = total;
-    }
-    pb.update({description, completed, total});
-  }).on('end', () => {
-    ++option.status;
-    const nextOption = FFMPGEOptionCache.find(o => !o.status);
-    if (nextOption) {
-      handleStartFFMPGE(nextOption);
-      pb.update({description, ignore: true});
-    }
-  }).outputOptions('-y').outputOptions('-c copy').save(fullPath);
+  ffmpeg(localFile || url)
+    .inputOptions('-protocol_whitelist', 'file,http,https,tcp,tls') // 添加输入选项
+    .on('start', function (command) {
+      DEBUG && console.log('FFmpeg process started:', command);
+    })
+    .on('progress', progress => {
+      if (!('percent' in progress)) {
+        progress.percent = convertToSeconds(progress.timemark) / duration * 100;
+      }
+      let completed = +(progress.percent || 0).toFixed(2);
+      let total = 100;
+      if (completed > total) {
+        completed = total;
+      }
+      pb.update({description, completed, total});
+    })
+    .on('end', () => {
+      ++option.status;
+      const nextOption = FFMPGEOptionCache.find(o => !o.status);
+      if (nextOption) {
+        handleStartFFMPGE(nextOption);
+        pb.update({description, ignore: true});
+      }
+    })
+    .on('error', function (err) {
+      DEBUG && console.error('Error occurred:', err.message);
+      DEBUG && console.log('FFmpeg stderr:', err.stderr); // Print error output
+    }).outputOptions('-c copy').save(fullPath);
 }
 
 async function main() {

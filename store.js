@@ -1,7 +1,11 @@
 // 配置文件, 请根据需要更改
 
+// 真实集数
+const _EPISODE = 2506;
+// 跟m3u地址的集数差
+const _EPISODE_DIFFERENCE = 1723;
 // 开始集数
-const START_EPISODE = 1;
+const START_EPISODE = _EPISODE - _EPISODE_DIFFERENCE;
 // 递增集数
 const INCREASE_EPISODES = 49;
 // 结束集数
@@ -9,12 +13,13 @@ let END_EPISODE = START_EPISODE + INCREASE_EPISODES;
 // 存放网络问题还未下载好的或者指定集数
 const NOT_COMPLETED_EPISODE = [];
 // 剧集名称
-const EPISODE_NAME = 'name';
+const EPISODE_NAME = '爱回家之开心速递';
 // 网页地址(存放 m3u)
-const HTML_URL = 'https://xxx/$episode.html';
+const HTML_URL = 'https://www.eastlighten.com/vodplay/107-1-$episode.html';
 // 视频下载路径
-const VIDEO_DOWNLOAD_PATH = `/xxx/${EPISODE_NAME}/`;
-
+const VIDEO_DOWNLOAD_PATH = `/resources/video/${EPISODE_NAME}/`;
+// 格式化视频名称
+const getFileName = episode => episode + _EPISODE_DIFFERENCE;
 // 是否自动下载文件
 const AUTO_DOWNLOAD = 1;
 // 导出 m3u 文件
@@ -25,6 +30,9 @@ const AUTO_EXPORT_M3U_NEXT = true;
 const M3U_FILE_PATH = `m3u/${EPISODE_NAME}`;
 // 同时下载最大文件数
 const SIMULTANEOUS_DOWNLOAD_MAX = 20;
+
+const M3U8_FILE_PATH = `m3u8/${EPISODE_NAME}`;
+const M3U8_REMOVE_TAG = '#EXT-X-DISCONTINUITY';
 
 module.exports = {
   START_EPISODE,
@@ -39,4 +47,7 @@ module.exports = {
   AUTO_EXPORT_M3U_NEXT,
   M3U_FILE_PATH,
   SIMULTANEOUS_DOWNLOAD_MAX,
+  M3U8_FILE_PATH,
+  M3U8_REMOVE_TAG,
+  getFileName,
 };
