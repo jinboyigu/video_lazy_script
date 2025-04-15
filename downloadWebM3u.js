@@ -4,7 +4,7 @@
 
 const http = require('https');
 const fs = require('fs');
-const {mkdirR, write} = require('./lib/fs');
+const {mkdirR, write, read, rewrite} = require('./lib/fs');
 const path = require('path');
 const ProgressBar = require('./lib/progressBar');
 const pb = new ProgressBar(void 0, 50);
@@ -96,6 +96,7 @@ async function downloadWebM3u(index) {
   return requestUrlContent(getHtmlURL(index)).then(async html => {
     const url = getVideoURL(html);
     if (!url) {
+      rewrite(path.resolve(__dirname, './store.js'), str => str.replace(/const _EPISODE = \d+;/, `const _EPISODE = ${getFileName(index)};`));
       NEED_STOP_LOOP = true;
       return;
     }
@@ -142,34 +143,30 @@ function handleStartFFMPGE(option) {
   ++option.status;
   const description = `已下载 ${fullPath}`;
   // TODO 增加总进度
-  ffmpeg(localFile || url)
-    .inputOptions('-protocol_whitelist', 'file,http,https,tcp,tls') // 添加输入选项
+  ffmpeg(localFile || url).inputOptions('-protocol_whitelist', 'file,http,https,tcp,tls') // 添加输入选项
     .on('start', function (command) {
       DEBUG && console.log('FFmpeg process started:', command);
-    })
-    .on('progress', progress => {
-      if (!('percent' in progress)) {
-        progress.percent = convertToSeconds(progress.timemark) / duration * 100;
-      }
-      let completed = +(progress.percent || 0).toFixed(2);
-      let total = 100;
-      if (completed > total) {
-        completed = total;
-      }
-      pb.update({description, completed, total});
-    })
-    .on('end', () => {
-      ++option.status;
-      const nextOption = FFMPGEOptionCache.find(o => !o.status);
-      if (nextOption) {
-        handleStartFFMPGE(nextOption);
-        pb.update({description, ignore: true});
-      }
-    })
-    .on('error', function (err) {
-      DEBUG && console.error('Error occurred:', err.message);
-      DEBUG && console.log('FFmpeg stderr:', err.stderr); // Print error output
-    }).outputOptions('-c copy').save(fullPath);
+    }).on('progress', progress => {
+    if (!('percent' in progress)) {
+      progress.percent = convertToSeconds(progress.timemark) / duration * 100;
+    }
+    let completed = +(progress.percent || 0).toFixed(2);
+    let total = 100;
+    if (completed > total) {
+      completed = total;
+    }
+    pb.update({description, completed, total});
+  }).on('end', () => {
+    ++option.status;
+    const nextOption = FFMPGEOptionCache.find(o => !o.status);
+    if (nextOption) {
+      handleStartFFMPGE(nextOption);
+      pb.update({description, ignore: true});
+    }
+  }).on('error', function (err) {
+    DEBUG && console.error('Error occurred:', err.message);
+    DEBUG && console.log('FFmpeg stderr:', err.stderr); // Print error output
+  }).outputOptions('-c copy').save(fullPath);
 }
 
 async function main() {

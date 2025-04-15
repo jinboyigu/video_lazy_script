@@ -1,7 +1,7 @@
 // 配置文件, 请根据需要更改
 
 // 真实集数
-const _EPISODE = 2506;
+const _EPISODE = 2534;
 // 跟m3u地址的集数差
 const _EPISODE_DIFFERENCE = 1723;
 // 开始集数
