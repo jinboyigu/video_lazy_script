@@ -74,10 +74,10 @@ async function formatM3U8URL(url, name) {
   if (fs.existsSync(localFile)) {
     result = fs.readFileSync(localFile, 'utf-8');
   } else {
-    const originResult = await requestUrlContent(url);
+    const originResult = await getRealM3U8();
     const array = originResult.split(`${M3U8_REMOVE_TAG}\n`);
-    array.splice(1, 1);
-    result = array.join('').split('\n').map(str => str.endsWith('\.ts') ? url.replace('index\.m3u8', str) : str).join('\n');
+    array.splice(array.length - 2, 1);
+    result = array.join('').split('\n').map(str => str.endsWith('\.ts') ? url.replace(getLastPath(url), str) : str).join('\n');
     write(result, localFile);
   }
   const duration = getDuration(result);
@@ -90,6 +90,23 @@ async function formatM3U8URL(url, name) {
       return +str.replace(/#EXTINF:(\d+\.?\d*),.*/, '$1');
     }).reduce((a, b) => a + b, 0);
   }
+
+  async function getRealM3U8() {
+    const result = await requestUrlContent(url);
+    // example: https://vip.ffzy-online1.com/20250808/56252_2ec59b5d/index.m3u8
+    // real:  https://vip.ffzy-online1.com/20250808/56252_2ec59b5d/2000k/hls/mixed.m3u8
+    const realM3U8 = result.split('\n').find(str => str.match('.m3u8'));
+    if (realM3U8) {
+      url = url.replace(getLastPath(url), '') + realM3U8;
+      return requestUrlContent(url);
+    }
+    return result;
+  }
+}
+
+function getLastPath(str) {
+  let paths = new URL(str).pathname.split('/');
+  return paths[paths.length - 1] || '';
 }
 
 async function downloadWebM3u(index) {
