@@ -1,9 +1,9 @@
 // 配置文件, 请根据需要更改
 
 // 真实集数
-const _EPISODE = 2627;
+const _EPISODE = 2668;
 // 跟m3u地址的集数差
-const _EPISODE_DIFFERENCE = 1;
+const _EPISODE_DIFFERENCE = 2;
 // 开始集数
 const START_EPISODE = _EPISODE - _EPISODE_DIFFERENCE;
 // 递增集数
@@ -15,7 +15,7 @@ const NOT_COMPLETED_EPISODE = [];
 // 剧集名称
 const EPISODE_NAME = '爱回家之开心速递';
 // 网页地址(存放 m3u)
-const HTML_URL = 'https://www.fdlrhy.com/vodplay/224-1-$episode.html';
+const HTML_URL = 'https://www.bjzudaba.com/play/463-0-$episode.html';
 // 视频下载路径
 const VIDEO_DOWNLOAD_PATH = `/resources/video/${EPISODE_NAME}/`;
 // 格式化视频名称

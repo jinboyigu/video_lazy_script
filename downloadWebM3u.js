@@ -42,6 +42,7 @@ let NEED_STOP_LOOP = false;
 
 const getVideoURL = content => {
   let matched = content.match(/"url":"(https:.*\/index\.m3u8)","url_next/);
+  matched = matched || content.match(/var now="(https:.*\/index\.m3u8)";var pn/);
   if (!matched) return '';
   let url;
   try {
