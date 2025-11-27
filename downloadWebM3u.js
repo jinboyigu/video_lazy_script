@@ -77,7 +77,10 @@ async function formatM3U8URL(url, name) {
   } else {
     const originResult = await getRealM3U8();
     const array = originResult.split(`${M3U8_REMOVE_TAG}\n`);
-    array.splice(array.length - 2, 1);
+    // 可能存在多个 M3U8_REMOVE_TAG
+    for (let i = 0; i < originResult.match(new RegExp(M3U8_REMOVE_TAG, 'g')).length / 2; i++) {
+      i && array[i * 2] && (array[i * 2] = '');
+    }
     result = array.join('').split('\n').map(str => str.endsWith('\.ts') ? url.replace(getLastPath(url), str) : str).join('\n');
     write(result, localFile);
   }
